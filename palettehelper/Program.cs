@@ -28,6 +28,8 @@ namespace palettehelper
 
             bool bothsides = true;
 
+            bool unipalport = false;
+
             bool fromscratch = true;
 
             bool alphamode = false;
@@ -215,6 +217,8 @@ namespace palettehelper
 
                 int alphapos = 0;
 
+                int unipalcolsel = 0;
+
                 int index1 = 0;
 
                 int index2 = 0;
@@ -270,6 +274,8 @@ namespace palettehelper
 
                                 string paramstr = processedline.Substring(input.Groups[1].Index, input.Groups[1].Length);
                                 string varstr = processedline.Substring(input.Groups[3].Index, input.Groups[3].Length);
+
+                                int varint = Convert.ToInt32(varstr);
 
                                 //Console.WriteLine("parameter "+paramstr);
                                 //Console.WriteLine("variable " + varstr);
@@ -355,17 +361,21 @@ namespace palettehelper
                                         }
                                         break;
                                     case "basealpha":
-                                        alphacolor = Convert.ToByte(varstr);
+                                        alphacolor = Convert.ToByte(varint);
                                         Console.WriteLine("alphacolor set to " + alphacolor + " in " + fname);
                                         break;
                                     case "palnum":
-                                        palnum = Convert.ToInt32(varstr);
+                                        palnum = varint;
                                         Console.WriteLine("palnum set to " + palnum + " in " + fname);
                                         break;
                                     case "bothsides":
-                                        int i2b = Convert.ToInt32(varstr);
+                                        int i2b = varint;
                                         bothsides = Convert.ToBoolean(i2b);
                                         Console.WriteLine("bothsides set to " + bothsides + " in " + fname);
+                                        break;
+                                    case "frompalcolor":
+                                        unipalcolsel = varint * 1024;
+                                        Console.WriteLine("existing .pal import offset set to " + unipalcolsel + " in " + fname);
                                         break;
                                     default:
                                         Console.WriteLine("unrecognized config variable: " + "'" + processedline + "'");
@@ -439,6 +449,8 @@ namespace palettehelper
 
                 byte[] array = buildfile.SelectMany(a => a).ToArray();
 
+                new FileInfo(outputdir).Directory.Create();
+
                 File.WriteAllBytes(outputdir, array);
 
                 Console.WriteLine("written at " + outputdir);
@@ -458,11 +470,15 @@ namespace palettehelper
 
                 byte[] editingpal = new byte[1024];
 
+                byte[] editingpalside2 = new byte[1024];
+
                 byte[] RIFFheadercheck = new byte[] { 82, 73, 70, 70 };
 
                 byte[] PNGPLTEcheck = new byte[] { 0x50, 0x4c, 0x54, 0x45 };
 
                 byte[] PSPALheadercheck = new byte[] { PSPAL[0], PSPAL[1], PSPAL[2], PSPAL[3] };
+
+                int uniquecolorlist = palettelist.Count / 2;
                 
                 if ( PSPALfn.EndsWith(".png") )
                 {
@@ -537,13 +553,17 @@ namespace palettehelper
                 }
                 else if ( PSPALheadercheck[0] == 255 && ispng == false)
                 {
-                    Array.Copy(PSPAL, 16, editingpal, 0, 1024);
+                    Array.Copy(PSPAL, 16+unipalcolsel, editingpal, 0, 1024);
+                    Array.Copy(PSPAL, 16+unipalcolsel+(uniquecolorlist*1024), editingpalside2, 0, 1024);
                     Console.WriteLine("not a ms pal probably unist");
+                    unipalport = true;
                 }
                 else if ( PSPALheadercheck[0] != 255 && ispng == false)
                 {
-                    Array.Copy(PSPAL, 4, editingpal, 0, 1024);
+                    Array.Copy(PSPAL, 4+unipalcolsel, editingpal, 0, 1024);
+                    Array.Copy(PSPAL, 4+unipalcolsel+(uniquecolorlist*1024), editingpalside2, 0, 1024);
                     Console.WriteLine("not a ms pal probably uniel");
+                    unipalport = true;
                 }
                 else
                 {
@@ -627,7 +647,7 @@ namespace palettehelper
 
                 editedpal.Add(editingpal);
 
-                int uniquecolorlist = palettelist.Count / 2;
+                
 
                 if (istxtlist == false || istxtlist==true)
                 {
@@ -665,9 +685,21 @@ namespace palettehelper
                             palettelist.RemoveAt(palnum);
                             Console.WriteLine(palettelist.Count);
                             palettelist.Insert(palnum, editingpal);
-                            if (bothsides && palnum < uniquecolorlist + 1) Console.WriteLine("writing both sides");
-                            if (bothsides && palnum < uniquecolorlist + 1) palettelist.RemoveAt(palnum + uniquecolorlist);
-                            if (bothsides && palnum < uniquecolorlist + 1) palettelist.Insert(palnum + uniquecolorlist, editingpal);
+                            if (bothsides && palnum < uniquecolorlist + 1)
+                            {
+                                Console.WriteLine("writing both sides");
+
+                                palettelist.RemoveAt(palnum + uniquecolorlist);
+                                if(unipalport)
+                                {
+                                    palettelist.Insert(palnum + uniquecolorlist, editingpalside2);
+                                }
+                                else
+                                {
+                                    palettelist.Insert(palnum + uniquecolorlist, editingpal);
+                                }
+
+                            }
                         }
                         else if (palnum >= palettelist.Count)
                         {
