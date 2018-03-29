@@ -550,59 +550,51 @@ namespace palettehelper
                     Console.WriteLine("somehow nothing is ok");
                 }
 
-                    //System.Environment.Exit(0);
+                //System.Environment.Exit(0);
 
 
-                    // a lot of these probably arent used
+                // a lot of these probably arent used
 
 
-                    //add color alpha override at some point in my lifetime
-                    //probably done
+                //add color alpha override at some point in my lifetime
+                //probably done
 
 
+                string curstring = "none";
 
+                if (istxtlist) curstring = pspaldirtextlist2[palnum];
 
+                Match basematch = Regex.Match(curstring, @"base=\d+");
 
+                Console.WriteLine("we");
 
-                    string curstring = "none";
-
-                    if (istxtlist) curstring = pspaldirtextlist2[palnum];
-
-                    Match basematch = Regex.Match(curstring, @"base=\d+");
-
-                    Console.WriteLine("we");
-
-
-
-
-
-                    int colpos = 0;
-                    int colpos2 = 3;
-                    byte listcolpos = 0;
-                    int listcolval = 0;
-                    int basecoloff = 1;
-                    if (alphamode)
+                int colpos = 0;
+                int colpos2 = 3;
+                byte listcolpos = 0;
+                int listcolval = 0;
+                int basecoloff = 1;
+                if (alphamode)
+                {
+                    for (int i = 1; i <= alphabytes.Count; i++)
                     {
-                        for (int i = 1; i <= alphabytes.Count; i++)
+                        if (i % 2 != 0)
                         {
-                            if (i % 2 != 0)
-                            {
-                                alphabytespos.Add(alphabytes[i - 1]);
-                               //Console.WriteLine(i+" posbytes");
-                               //Console.WriteLine(alphabytes.Count);
-                            }
-                            else
-                            {
-                                alphabytescol.Add(alphabytes[i - 1]);
-                               //Console.WriteLine(i + " colbytes");
-                            }
+                            alphabytespos.Add(alphabytes[i - 1]);
+                            //Console.WriteLine(i+" posbytes");
+                            //Console.WriteLine(alphabytes.Count);
                         }
-                        colpos = 0;
-                        colpos2 = 3;
-                        listcolpos = alphabytespos[0];
-                        listcolval = alphabytescol[0];
-                        basecoloff = 1;
+                        else
+                        {
+                            alphabytescol.Add(alphabytes[i - 1]);
+                            //Console.WriteLine(i + " colbytes");
+                        }
                     }
+                    colpos = 0;
+                    colpos2 = 3;
+                    listcolpos = alphabytespos[0];
+                    listcolval = alphabytescol[0];
+                    basecoloff = 1;
+                }
 
                 
                 if (istxtlist == false || istxtlist == true)
