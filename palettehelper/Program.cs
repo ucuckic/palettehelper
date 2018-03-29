@@ -559,13 +559,6 @@ namespace palettehelper
                 //add color alpha override at some point in my lifetime
                 //probably done
 
-
-                string curstring = "none";
-
-                if (istxtlist) curstring = pspaldirtextlist2[palnum];
-
-                Match basematch = Regex.Match(curstring, @"base=\d+");
-
                 Console.WriteLine("we");
 
                 int colpos = 0;
