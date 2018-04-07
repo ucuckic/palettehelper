@@ -28,8 +28,6 @@ namespace palettehelper
 
             bool bothsides = true;
 
-            bool unipalport = false;
-
             bool fromscratch = true;
 
             bool alphamode = false;
@@ -198,6 +196,8 @@ namespace palettehelper
 
                 List<byte[]> editedpal = new List<byte[]>();
 
+                List<byte[]> editedpalside2 = new List<byte[]>();
+
                 List<byte> alphabytes = new List<byte>();
 
                 List<byte> alphabytespos = new List<byte>();
@@ -218,6 +218,10 @@ namespace palettehelper
                 int alphapos = 0;
 
                 int unipalcolsel = 0;
+
+                string fixsidesmode = "";
+
+                bool fixsides = false;
 
                 int index1 = 0;
 
@@ -275,7 +279,7 @@ namespace palettehelper
                                 string paramstr = processedline.Substring(input.Groups[1].Index, input.Groups[1].Length);
                                 string varstr = processedline.Substring(input.Groups[3].Index, input.Groups[3].Length);
 
-                                int varint = Convert.ToInt32(varstr);
+                                int.TryParse(varstr,out int varint);
 
                                 //Console.WriteLine("parameter "+paramstr);
                                 //Console.WriteLine("variable " + varstr);
@@ -376,6 +380,11 @@ namespace palettehelper
                                     case "frompalcolor":
                                         unipalcolsel = varint * 1024;
                                         Console.WriteLine("existing .pal import offset set to " + unipalcolsel + " in " + fname);
+                                        break;  
+                                    case "autofixsides":
+                                        fixsidesmode = varstr;
+                                        if(varstr=="hilda"||varstr=="seth")fixsides = true;
+                                        Console.WriteLine("fixing sides for " + fixsidesmode + " in " + fname);
                                         break;
                                     default:
                                         Console.WriteLine("unrecognized config variable: " + "'" + processedline + "'");
@@ -463,7 +472,9 @@ namespace palettehelper
                 {
 
                 //alphacolor = 255;
-                
+
+                int unipalport = 0;
+
                 bool ispng = false;
                 
                 List<byte> pngpalbytes = new List<byte>();
@@ -549,26 +560,36 @@ namespace palettehelper
                 if (PSPALheadercheck.SequenceEqual(RIFFheadercheck) == true)
                 {
                     Array.Copy(PSPAL, 24, editingpal, 0, 1024);
+                    //Array.Copy(PSPAL, 24, editingpalside2, 0, 1024);
                     Console.WriteLine("mspal header valid");
                 }
                 else if ( PSPALheadercheck[0] == 255 && ispng == false)
                 {
                     Array.Copy(PSPAL, 16+unipalcolsel, editingpal, 0, 1024);
-                    Array.Copy(PSPAL, 16+unipalcolsel+(uniquecolorlist*1024), editingpalside2, 0, 1024);
+                    //Array.Copy(PSPAL, 16+unipalcolsel+(uniquecolorlist*1024), editingpalside2, 0, 1024);
                     Console.WriteLine("not a ms pal probably unist");
-                    unipalport = true;
+                    unipalport = 1;
+                    Array.Copy(PSPAL, 16 + unipalcolsel + uniquecolorlist * 1024, editingpalside2, 0, 1024);
                 }
                 else if ( PSPALheadercheck[0] != 255 && ispng == false)
                 {
                     Array.Copy(PSPAL, 4+unipalcolsel, editingpal, 0, 1024);
-                    Array.Copy(PSPAL, 4+unipalcolsel+(uniquecolorlist*1024), editingpalside2, 0, 1024);
+                    //Array.Copy(PSPAL, 4+unipalcolsel+(uniquecolorlist*1024), editingpalside2, 0, 1024);
                     Console.WriteLine("not a ms pal probably uniel");
-                    unipalport = true;
+                    unipalport = 2;
+                    Array.Copy(PSPAL, 4 + unipalcolsel + uniquecolorlist * 1024, editingpalside2, 0, 1024);
                 }
                 else
                 {
                     Console.WriteLine("somehow nothing is ok");
                 }
+
+                if (unipalport == 0 && bothsides)
+                {
+                        Array.Copy(editingpal, 0, editingpalside2, 0, 1024);
+                }
+
+                    
 
                 //System.Environment.Exit(0);
 
@@ -618,6 +639,10 @@ namespace palettehelper
                         {
                             //Console.WriteLine(colpos);
                             editingpal[colpos] = alphacolor;
+                            if(bothsides)
+                            {
+                                editingpalside2[colpos] = alphacolor;
+                            }
                             colpos2 += 4;
                         }
                         if(alphamode)
@@ -631,6 +656,10 @@ namespace palettehelper
                                     //Console.WriteLine(listcolposcnt);
                                     listcolpos = alphabytescol[listcolposcnt];
                                     editingpal[colpos] = listcolpos;
+                                    if(bothsides)
+                                    {
+                                        editingpalside2[colpos] = listcolpos;
+                                    }
                                     basecoloff = 1;
                                 }
                                 listcolposcnt++;
@@ -646,28 +675,73 @@ namespace palettehelper
 
 
                 editedpal.Add(editingpal);
+                editedpalside2.Add(editingpalside2);
 
-                
+
 
                 if (istxtlist == false || istxtlist==true)
                 {
-                        //palettelist.RemoveAt(palnum);
-                        //palettelist.Insert(palnum, editingpal);
+                    //palettelist.RemoveAt(palnum);
+                    //palettelist.Insert(palnum, editingpal);
 
                     //int uniquecolorlist = palettelist.Count / 2;
 
-                    if (bothsides == true && palnum < uniquecolorlist )
+                    if (bothsides == true && palnum < uniquecolorlist && !fixsides )
                     {
                         //palettelist.RemoveAt(palnum + uniquecolorlist);
                         //palettelist.Insert(palnum + uniquecolorlist, editingpal);
                         Console.WriteLine("both sides ok");
+                    }
+                    else if(fixsides)
+                    {
+                        byte[] bufferpal = new byte[1024];
+
+                        int[] sethcolormapfrom = new int[] {11,12,13,144,145,146,147,148,149,150,151,152,153};
+                        int[] sethcolormapto = new int[] {27,28,29,160,161,162,163,164,165,166,167,168,169};
+
+                        int[] hildacolormapfrom = new int[] {26,27,28,64,65,66,67,68,80,81,82,83};
+                        int[] hildacolormapto = new int[] {42,43,44,70,71,72,73,74,85,86,87,88};
+
+                        int numcol = 0;
+
+                        switch(fixsidesmode)
+                        {
+                            case "seth":
+                                    numcol = sethcolormapfrom.Length;
+                                    break;
+                            case "hilda":
+                                    numcol = hildacolormapfrom.Length;
+                                    break;
+                        }
+                        for (int i = 0; i < numcol; i++)
+                        {
+                            int fromval = 0;
+                            int toval = 0;
+
+                            switch(fixsidesmode)
+                            {
+                                case "seth":
+                                    fromval = sethcolormapfrom[i]*4;
+                                    toval = sethcolormapto[i]*4;
+                                    break;
+                                case "hilda":
+                                    fromval = hildacolormapfrom[i] * 4;
+                                    toval = hildacolormapto[i] * 4;
+                                    break;
+                            }
+
+                            Array.Copy(editingpalside2, fromval, bufferpal, fromval, 4);
+                            Array.Copy(editingpal, toval, editingpalside2, fromval, 4);
+                            Array.Copy(bufferpal, fromval, editingpalside2, toval, 4);
+                        }
+                            //System.Environment.Exit(0);
                     }
                     else
                     {
                         if (bothsides == false) Console.WriteLine("second side writing disabled");
                         else
                         {
-                                bothsides = false;
+                            bothsides = false;
                             Console.WriteLine("second side probably doesnt exist");
                         }
                     }
@@ -690,8 +764,9 @@ namespace palettehelper
                                 Console.WriteLine("writing both sides");
 
                                 palettelist.RemoveAt(palnum + uniquecolorlist);
-                                if(unipalport)
+                                if(unipalport > 0 || fixsides) //unist
                                 {
+                                    //Array.Copy(PSPAL, 16 + unipalcolsel + uniquecolorlist * 1024, editingpalside2, 0, 1024);
                                     palettelist.Insert(palnum + uniquecolorlist, editingpalside2);
                                 }
                                 else
