@@ -149,6 +149,9 @@ namespace palettehelper
                 //Array.Copy(UNIPAL, 0, workingpald, 0, workingpald.Length);
                 //palettelist.Add(workingpald);
 
+                int maxpalcnt = 0;
+
+                maxpalcnt = (mode == "uniel") ? 64 : 84;
 
                 foreach (int palpos in positions)
                 {
@@ -435,6 +438,19 @@ namespace palettehelper
                     dofunc();
                 }
 
+                int difference = palettelist.Count - maxpalcnt;
+
+                if (difference > 0) Console.WriteLine("overcapacity for this mode");
+
+                for (int i = 1; i <= difference; i+=2)
+                {
+                    int pos = palettelist.Count;
+                    Console.WriteLine("removing " + (pos - 1) + " " + (pos / 2 - 1));
+                    palettelist.RemoveAt(pos - 1);
+                    palettelist.RemoveAt(pos / 2 - 1);
+                    Console.WriteLine("removed " + (pos - 1) + " " + (pos / 2 - 1));
+                }
+
                 byte Pcnt = (byte)palettelist.Count;
                 byte[] UNISTheader = new byte[] { 255, 255, 00, 00, 01, 00, 00, 00, 00, 00, 00, 00, Pcnt, 00, 00, 00 };
 
@@ -450,7 +466,7 @@ namespace palettehelper
                     header.Add(UNIELheader);
                     Console.WriteLine("\nUNIEL mode\n");
                 }
-
+                    
                 buildfile.InsertRange(0, palettelist);
                 //buildfile.InsertRange(0, editedpal);
                 buildfile.InsertRange(0, header);
