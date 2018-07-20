@@ -13,6 +13,8 @@ namespace palettehelper
 {
     class Program
     {
+        public static string[] autofixsidescharacters = { "hilda","seth","rentaro" };
+
         public static void Main(string[] args)
         {
             string workingdir = Directory.GetCurrentDirectory();
@@ -24,6 +26,9 @@ namespace palettehelper
             string txtlistdir = Path.Combine(workingdir, none);
             string palnumstring = "0";
             string alphacolorstring = "255";
+
+            
+
             byte alphacolor = Convert.ToByte(alphacolorstring);
 
             bool bothsides = true;
@@ -105,64 +110,22 @@ namespace palettehelper
                 }
 
                 Console.WriteLine("brand new palette: "+fromscratch);
-                //Console.WriteLine(headeroff);
 
 
                 List<byte[]> header = new List<byte[]>();
 
-                List<int> positions = new List<int>();
-
                 List<byte[]> colorlist = new List<byte[]>();
-
-                List<byte[]> palettelist = new List<byte[]>();
-
 
                 List<string> filenamelist = new List<string>();
 
+                int numofpalsinbasepal = BitConverter.ToInt32(UNIPAL,headeroff-3);
 
-                int position = 0;
-                int position2 = 0;
-                int paloff = 0;
+                Console.WriteLine("theres "+numofpalsinbasepal+" colors in this nibba");
+
                 Console.WriteLine(headeroff);
-                //System.Environment.Exit(0);
-                foreach (byte color in UNIPAL)
-                {
-                    //position++;
-                    if (position > headeroff)
-                    {
-                        if (position2 == paloff)
-                        {
-                            //UNIPAL.CopyTo(workingpal, position);
-                            //palettelist.Add(workingpal);
-                            positions.Add(position);
-                            //Array.Copy(UNIPAL, position, workingpal, 0, workingpal.Length);
-                            paloff += 1024;
-                        }
-                        position2++;
-                    }
-                    position++;
-                    //Console.WriteLine("foreach");
-                }
 
-                //byte[] workingpald = new byte[positions.Count*1024];
+                List<byte[]> palettelist = PalMethods.loadpals(headeroff,numofpalsinbasepal,UNIPAL);
 
-                //Array.Copy(UNIPAL, 0, workingpald, 0, workingpald.Length);
-                //palettelist.Add(workingpald);
-
-                int maxpalcnt = 0;
-
-                maxpalcnt = (mode == "uniel") ? 64 : 84;
-
-                foreach (int palpos in positions)
-                {
-                    byte[] workingpal = new byte[1024];
-                    Array.Copy(UNIPAL, palpos, workingpal, 0, workingpal.Length);
-                    palettelist.Add(workingpal);
-                    //palettelist.Add(workingpal);
-                    Console.WriteLine(palpos);
-                    Console.WriteLine(workingpal.Length);
-                    Console.WriteLine("loaded " + palettelist.Count + " palettes");
-                }
                 Console.WriteLine(palettelist.Count / 2 + " 'unique' palettes");
 
                 Console.WriteLine("palnum " + palnum);
@@ -381,12 +344,12 @@ namespace palettehelper
                                         Console.WriteLine("bothsides set to " + bothsides + " in " + fname);
                                         break;
                                     case "frompalcolor":
-                                        unipalcolsel = varint * 1024;
+                                        unipalcolsel = varint;
                                         Console.WriteLine("existing .pal import offset set to " + unipalcolsel + " in " + fname);
                                         break;  
                                     case "autofixsides":
                                         fixsidesmode = varstr;
-                                        if(varstr=="hilda"||varstr=="seth")fixsides = true;
+                                        if( autofixsidescharacters.Contains(varstr) ) fixsides = true;
                                         Console.WriteLine("fixing sides for " + fixsidesmode + " in " + fname);
                                         break;
                                     default:
@@ -437,6 +400,11 @@ namespace palettehelper
                 {
                     dofunc();
                 }
+
+
+                int maxpalcnt = 0;
+
+                maxpalcnt = (mode == "uniel") ? 64 : 84;
 
                 int difference = palettelist.Count - maxpalcnt;
 
@@ -581,19 +549,27 @@ namespace palettehelper
                 }
                 else if ( PSPALheadercheck[0] == 255 && ispng == false)
                 {
-                    Array.Copy(PSPAL, 16+unipalcolsel, editingpal, 0, 1024);
+                    int thispalcolorlist = PSPAL[12] / 2;
+                    Array.Copy(PSPAL, 16+(unipalcolsel*1024), editingpal, 0, 1024);
                     //Array.Copy(PSPAL, 16+unipalcolsel+(uniquecolorlist*1024), editingpalside2, 0, 1024);
                     Console.WriteLine("not a ms pal probably unist");
                     unipalport = 1;
-                    Array.Copy(PSPAL, 16 + unipalcolsel + uniquecolorlist * 1024, editingpalside2, 0, 1024);
+                        Console.WriteLine("this " + unipalcolsel + " is " + thispalcolorlist);
+                        Console.WriteLine("ps "+ ( (unipalcolsel + thispalcolorlist) * 1024 + 16));
+                    Array.Copy(PSPAL, (unipalcolsel + thispalcolorlist) * 1024 + 16, editingpalside2, 0, 1024);
+
+                        
+
+                        
                 }
                 else if ( PSPALheadercheck[0] != 255 && ispng == false)
                 {
-                    Array.Copy(PSPAL, 4+unipalcolsel, editingpal, 0, 1024);
+                    int thispalcolorlist = PSPAL[12] / 2;
+                    Array.Copy(PSPAL, 4+(unipalcolsel * 1024), editingpal, 0, 1024);
                     //Array.Copy(PSPAL, 4+unipalcolsel+(uniquecolorlist*1024), editingpalside2, 0, 1024);
                     Console.WriteLine("not a ms pal probably uniel");
                     unipalport = 2;
-                    Array.Copy(PSPAL, 4 + unipalcolsel + uniquecolorlist * 1024, editingpalside2, 0, 1024);
+                    Array.Copy(PSPAL, (unipalcolsel + thispalcolorlist) * 1024 + 4, editingpalside2, 0, 1024);
                 }
                 else
                 {
@@ -710,48 +686,13 @@ namespace palettehelper
                     }
                     else if(fixsides)
                     {
-                        byte[] bufferpal = new byte[1024];
+                            byte[] fixsidesarray = new byte[2048];
+                            fixsidesarray = PalMethods.fixpalsides(fixsidesmode, editingpal, editingpalside2);
 
-                        int[] sethcolormapfrom = new int[] {11,12,13,144,145,146,147,148,149,150,151,152,153};
-                        int[] sethcolormapto = new int[] {27,28,29,160,161,162,163,164,165,166,167,168,169};
-
-                        int[] hildacolormapfrom = new int[] {26,27,28,64,65,66,67,68,80,81,82,83};
-                        int[] hildacolormapto = new int[] {42,43,44,70,71,72,73,74,85,86,87,88};
-
-                        int numcol = 0;
-
-                        switch(fixsidesmode)
-                        {
-                            case "seth":
-                                    numcol = sethcolormapfrom.Length;
-                                    break;
-                            case "hilda":
-                                    numcol = hildacolormapfrom.Length;
-                                    break;
-                        }
-                        for (int i = 0; i < numcol; i++)
-                        {
-                            int fromval = 0;
-                            int toval = 0;
-
-                            switch(fixsidesmode)
-                            {
-                                case "seth":
-                                    fromval = sethcolormapfrom[i]*4;
-                                    toval = sethcolormapto[i]*4;
-                                    break;
-                                case "hilda":
-                                    fromval = hildacolormapfrom[i] * 4;
-                                    toval = hildacolormapto[i] * 4;
-                                    break;
-                            }
-
-                            Array.Copy(editingpalside2, fromval, bufferpal, fromval, 4);
-                            Array.Copy(editingpal, toval, editingpalside2, fromval, 4);
-                            Array.Copy(bufferpal, fromval, editingpalside2, toval, 4);
-                        }
+                            Array.Copy(fixsidesarray, 0, editingpal, 0, 1024);
+                            Array.Copy(fixsidesarray, 1023, editingpalside2, 0, 1024);
                             //System.Environment.Exit(0);
-                    }
+                        }
                     else
                     {
                         if (bothsides == false) Console.WriteLine("second side writing disabled");
