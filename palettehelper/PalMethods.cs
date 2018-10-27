@@ -16,6 +16,11 @@ namespace palettehelper
         
         public int palcnt;
 
+        public int getpalcnt()
+        {
+            return Lpals.Count + Rpals.Count;
+        }
+
         public byte[] getdata(int head)
         {
             palcnt = Lpals.Count + Rpals.Count;
@@ -58,6 +63,9 @@ namespace palettehelper
             }
 
             byte[] palarray = bytelist.SelectMany(a => a).ToArray();
+
+            Rpals.Reverse();
+            Lpals.Reverse();
 
             return palarray;
         }
@@ -133,56 +141,75 @@ namespace palettehelper
 
         public static PalFile processpalcfg(PalFile inpal, List<string> instrlist)
         {
-            foreach (string line in instrlist)
+            if (instrlist.Count > 0)
             {
-                string processedline = line;
-
-                Match comments = Regex.Match(line, @"\/\/(.*)");
-
-                processedline = line.Remove(comments.Index, comments.Length);
-
-                //Console.WriteLine(processedline);
-
-                Match input = Regex.Match(processedline, @"(^[^=]*)(\=)(.*)");
-
-                string paramstr = processedline.Substring(input.Groups[1].Index, input.Groups[1].Length);
-                string varstr = processedline.Substring(input.Groups[3].Index, input.Groups[3].Length);
-
-                int.TryParse(varstr, out int varint);
-
-                //Console.WriteLine("parameter "+paramstr);
-                //Console.WriteLine("variable " + varstr);
-
-                switch (paramstr)
+                foreach (string line in instrlist)
                 {
-                    case "autofixsides":
-                        Console.WriteLine("fix sides");
-                        inpal = fixpalsides2(varstr,inpal.Lpals[0], inpal.Rpals[0]);
-                        break;
-                    case "manualalpha":
-                        Console.WriteLine("replacing alpha color");
-                        byte[] file = File.ReadAllBytes(varstr);
+                    string processedline = line;
+                    string paramstr = "";
+                    string varstr = "";
 
-                        inpal = setpalalpha(inpal.Lpals[0], inpal.Rpals[0], loadpalette(file));
+                    Match comments = Regex.Match(line, @"\/\/(.*)");
 
-                        break;
-                    case "test":
-                        Console.WriteLine("test success");
-                        Console.WriteLine("parameter " + paramstr + " help");
-                        Console.WriteLine("variable " + varstr + " help");
-                        //System.Environment.Exit(0);
-                        //PSPALdir = Path.Combine(workingdir, @args[count + 1]);
-                        break;
-                    default:
-                        Console.WriteLine("unrecognized config variable: " + "'" + paramstr + "'");
-                        break;
+                    processedline = line.Remove(comments.Index, comments.Length);
+
+                    //Console.WriteLine(processedline);
+
+                    Match input = Regex.Match(processedline, @"(^[^=]*)(\=)(.*)");
+                    if (input.Success)
+                    {
+                        paramstr = processedline.Substring(input.Groups[1].Index, input.Groups[1].Length);
+                        varstr = processedline.Substring(input.Groups[3].Index, input.Groups[3].Length);
+                    }
+
+
+                    int.TryParse(varstr, out int varint);
+
+                    //Console.WriteLine("parameter "+paramstr);
+                    //Console.WriteLine("variable " + varstr);
+
+                    switch (paramstr)
+                    {
+                        case "autofixsides":
+                            Console.WriteLine("fix sides");
+                            inpal = fixpalsides2(varstr, inpal.Lpals[0], inpal.Rpals[0]);
+                            break;
+                        case "manualalpha":
+                            Console.WriteLine("replacing alpha color");
+                            byte[] file = File.ReadAllBytes(varstr);
+
+                            inpal = setpalalpha(inpal.Lpals[0], inpal.Rpals[0], loadpalette(file));
+
+                            break;
+                        case "frompalcolor":
+                            if(inpal.Lpals.Count >= varint)
+                            {
+                                //Console.WriteLine("this is good "+inpal.Lpals.Count);
+                                PalMethods.replacepalette(inpal.Lpals[varint], inpal.Rpals[varint], inpal, 0);
+                            }
+                            else
+                            {
+
+                                Console.WriteLine("frompalcolor out of bounds (probably not a uni pal input)");
+                            }
+                            break;
+                        case "test":
+                            Console.WriteLine("test success");
+                            Console.WriteLine("parameter " + paramstr + " help");
+                            Console.WriteLine("variable " + varstr + " help");
+                            //System.Environment.Exit(0);
+                            //PSPALdir = Path.Combine(workingdir, @args[count + 1]);
+                            break;
+                        default:
+                            Console.WriteLine("unrecognized config variable: " + "'" + paramstr + "'");
+                            break;
+                    }
                 }
             }
-
             return inpal;
         }
 
-        public static PalFile createpalfile(List<Palette> Lpalin,List<Palette> Rpalin)
+        public static PalFile createpalfile(List<Palette> Lpalin, List<Palette> Rpalin)
         {
             PalFile outpal = new PalFile();
 
@@ -207,12 +234,12 @@ namespace palettehelper
                 {
                     while (streamread.BaseStream.Position != streamread.BaseStream.Length)
                     {
-                        
+
                         byte[] findplte = streamread.ReadBytes(4);
 
                         //Console.WriteLine("finding plte chunk " + streamread.BaseStream.Position);
                         //Console.WriteLine("finding plte chunk " + System.Text.Encoding.Default.GetString(findplte));
-                        if ( findplte.SequenceEqual(PNGPLTEcheck) )
+                        if (findplte.SequenceEqual(PNGPLTEcheck))
                         {
                             Console.WriteLine("found");
                             byte[] pngpalbyte = streamread.ReadBytes(768);
@@ -260,8 +287,10 @@ namespace palettehelper
 
             type = determineinput(sourcearray);
 
+            Console.WriteLine("intype: " + type);
+
             Palette workingpalette = new Palette();
-            switch(type)
+            switch (type)
             {
                 case 10:
                     for (int x = 0; x < 1024; x += 4)
@@ -310,8 +339,62 @@ namespace palettehelper
             return workingpalette;
         }
 
-        public static PalFile loadpals(int offset, byte[] sourcearray)
+        public static void replacepalettes(string inputdir, PalFile basepal)
         {
+            bool fromuni = false;
+
+            byte[] PSPAL = File.ReadAllBytes(inputdir);
+
+            string configdir = inputdir + "_cfg.txt";
+
+            PalFile newpal = new PalFile();
+            if( determineinput(PSPAL) == 0 || determineinput(PSPAL)==1 )
+            {
+                newpal = loadpals(PSPAL);
+            }
+            else
+            {
+                newpal.Lpals.Add(PalMethods.loadpalette(PSPAL));
+                newpal.Rpals.Add(PalMethods.loadpalette(PSPAL));
+            }
+
+
+            if (File.Exists(configdir))
+            {
+                Console.WriteLine("config located for " + inputdir);
+
+                List<string> configtextlist = File.ReadAllLines(configdir).ToList();
+
+                //Console.WriteLine(configtextlist.Count);
+
+                newpal = PalMethods.processpalcfg(newpal, configtextlist);
+            }
+
+            PalMethods.replacepalette(newpal.Lpals[0], newpal.Rpals[0], basepal, 0);
+        }
+
+
+        public static PalFile loadpals(byte[] sourcearray)
+        {
+            int type = PalMethods.determineinput(sourcearray);
+            int offset = 0;
+            switch (type)
+            {
+                case 0:
+                    offset = 16; //st mode
+                    break;
+                case 1:
+                    offset = 4; //el mode
+                    break;
+                case 2:
+                    break;
+                case 3: //text list
+                    break;
+                case 10:
+                    //headeroff = 0;
+                    break;
+            }
+
             int numpal = (sourcearray.Length - offset) / 1024;
 
             Console.WriteLine("num "+numpal);
@@ -407,12 +490,18 @@ namespace palettehelper
                     arrayfrom = stmcolormapfrom;
                     arrayto = stmcolormapto;
                     break;
+
+                default:
+
+                    break;
             }
 
             Console.WriteLine("fixing sides for: "+character);
 
             for (int i = 0; i < arrayfrom.Length; i++)
             {
+                Console.WriteLine("fixing sides for loop: " + character);
+
                 rside.colors[arrayfrom[i]] = lside.colors[arrayto[i]];
                 rside.colors[arrayto[i]] = lside.colors[arrayfrom[i]];
             }

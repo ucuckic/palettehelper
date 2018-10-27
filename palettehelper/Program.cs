@@ -130,14 +130,14 @@ namespace palettehelper
                         //headeroff = 0;
                         break;
                 }
-                basepal = PalMethods.loadpals(headeroff, basepalbytes);
+                basepal = PalMethods.loadpals(basepalbytes);
                 fromscratch = false;
             }
             byte[] PSPAL = new byte[1024];
 
             if (File.Exists(PSPALdir))
             {
-                PSPAL = File.ReadAllBytes(PSPALdir);
+                
                 //inpal = PalMethods.loadpalette(PSPAL, 100);
             
 
@@ -158,27 +158,8 @@ namespace palettehelper
                         {
                             Console.WriteLine("cycling lines " + i + " " + pspaldirtextlist[i]);
 
-                            byte[] filebyte = File.ReadAllBytes(@pspaldirtextlist[i]);
-                            Console.WriteLine(filebyte.Length);
-
-                            PalFile newpal = new PalFile();
-
-                            newpal.Lpals.Add(PalMethods.loadpalette(filebyte, PalMethods.determineinput(filebyte)));
-                            newpal.Rpals.Add(PalMethods.loadpalette(filebyte, PalMethods.determineinput(filebyte)));
-
-                            string configdir = pspaldirtextlist[i] + "_cfg.txt";
-
-                            if (File.Exists(configdir))
-                            {
-                                Console.WriteLine("config located for " + pspaldirtextlist[i]);
-
-                                List<string> configtextlist = File.ReadAllLines(configdir).ToList();
-
-                                newpal = PalMethods.processpalcfg(newpal,configtextlist);
-                            }
-
-                            PalMethods.replacepalette(newpal.Lpals[0], newpal.Rpals[0], basepal, i);
-                            Console.WriteLine("palrep "+i);
+                            PalMethods.replacepalettes(@pspaldirtextlist[i], basepal);
+                            //Console.WriteLine("palrep "+i);
                             //Console.WriteLine(basepal.palcnt + " " + basepal.Lpals.Count + " " + basepal.Rpals.Count);
                         }
                         
@@ -186,17 +167,15 @@ namespace palettehelper
                 }
                 else
                 {
-                    int i = 0;
 
-                    Int32.TryParse(palnumstring, out i);
+                    PalMethods.replacepalettes(PSPALdir,basepal);
 
-                    Palette txtinpal = PalMethods.loadpalette(PSPAL, PalMethods.determineinput(PSPAL));
-
-                    PalMethods.replacepalette(txtinpal, txtinpal, basepal, i);
+                    //PalMethods.replacepalette(txtinpal, txtinpal, basepal, i);
                 }
 
                 foreach (string path in outputdirs)
                 {
+                    Console.WriteLine("saved to "+path);
                     PalMethods.createfile(Path.Combine(workingdir, path), basepal.getdata(type));
                 }
             }
