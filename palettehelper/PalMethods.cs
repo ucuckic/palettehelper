@@ -53,6 +53,7 @@ namespace palettehelper
 
             foreach (Palette pal in Rpals)
             {
+                //Console.WriteLine("here we go "+pal.colors[0][0]+" "+Rpals.Count);
                 byte[] paldat = pal.getdata();
                 bytelist.Insert(1, paldat);
             }
@@ -76,7 +77,15 @@ namespace palettehelper
         byte[] data = new byte[1024];
 
         public byte[][] colors = new byte[256][];
+        public Palette()
+        {
+            for(int i = 0; i < colors.Length; i++)
+            {
+                colors[i] = new byte[4];
 
+                colors[i][3] = 255;
+            }
+        }
         public byte[] getdata()
         {
             byte[] dataarray = new byte[1024];
@@ -95,19 +104,48 @@ namespace palettehelper
     {
         public static void replacepalette(Palette left, Palette right, PalFile file, int index)
         {
-            Console.WriteLine("replace");
+            Console.WriteLine("replace index "+index);
+            if (file.Lpals.Count >= index)
+            {
+                file.Lpals.RemoveAt(index);
+                file.Lpals.Insert(index, left);
+            }
+            else
+            {
+                while (file.Lpals.Count < index)
+                {
+                    file.Lpals.Add(file.Lpals[0]);
+                }
 
-            file.Lpals.RemoveAt(index);
-            file.Lpals.Insert(index, left);
+                file.Lpals.Insert(index, left);
 
-            file.Rpals.RemoveAt(index);
-            file.Rpals.Insert(index, right);
+                //Console.WriteLine(file.Lpals.Count);
+            }
+            
+            if (file.Rpals.Count >= index)
+            {
+                file.Rpals.RemoveAt(index);
+                file.Rpals.Insert(index, right);
+            }
+            else
+            {
+                while (file.Rpals.Count < index)
+                {
+                    file.Rpals.Add(file.Rpals[0]);
+                }
+
+                file.Rpals.Insert(index, right);
+
+                //Console.WriteLine(file.Rpals.Count);
+            }
         }
         public static void createfile(string outputdir, byte[] file)
         {
             new FileInfo(outputdir).Directory.Create();
 
             System.IO.File.WriteAllBytes(outputdir, file);
+
+            Console.WriteLine("saved to " + outputdir);
         }
 
         public static int determineinput(byte[] file)
@@ -222,6 +260,10 @@ namespace palettehelper
 
         public static Palette getpngpalette(byte[] file)
         {
+            //List<string> outlist = new List<string>();
+
+            bool success = false;
+
             Console.WriteLine("getpngpal");
 
             Palette pngpal = new Palette();
@@ -232,8 +274,12 @@ namespace palettehelper
             {
                 using (BinaryReader streamread = new BinaryReader(stream))
                 {
-                    while (streamread.BaseStream.Position != streamread.BaseStream.Length)
+                    //while (streamread.BaseStream.Position != streamread.BaseStream.Length)
+                    for(int i = 0; i < streamread.BaseStream.Length; i++)
                     {
+                        //Console.WriteLine("reading "+streamread.BaseStream.Position+" and "+streamread.BaseStream.Length);
+
+                        //outlist.Add("reading " + streamread.BaseStream.Position + " and " + streamread.BaseStream.Length);
 
                         byte[] findplte = streamread.ReadBytes(4);
 
@@ -241,7 +287,7 @@ namespace palettehelper
                         //Console.WriteLine("finding plte chunk " + System.Text.Encoding.Default.GetString(findplte));
                         if (findplte.SequenceEqual(PNGPLTEcheck))
                         {
-                            Console.WriteLine("found");
+                            Console.WriteLine("png PLTE chunk found");
                             byte[] pngpalbyte = streamread.ReadBytes(768);
                             for (int x = 0; x < 768; x += 3)
                             {
@@ -260,17 +306,26 @@ namespace palettehelper
 
                                 //Console.WriteLine("coff " + x);
                             }
-
+                            success = true;
                             break;
                         }
 
-                        streamread.BaseStream.Position -= 3;
+                        streamread.BaseStream.Position = i;
 
                         //if (streamread.BaseStream.Position > 18272) break;
                     }
-
                 }
             }
+
+            //System.IO.File.WriteAllLines("outlist.txt", outlist);
+
+            if (!success)
+            {
+                Console.WriteLine("no png PLTE chunk found (image is not indexed color)");
+                //for(int i = 0; i < 1024; i++)
+            }
+
+            
 
             return pngpal;
         }
@@ -339,7 +394,7 @@ namespace palettehelper
             return workingpalette;
         }
 
-        public static void replacepalettes(string inputdir, PalFile basepal)
+        public static void replacepalettes(string inputdir, PalFile basepal, int index = 0)
         {
             bool fromuni = false;
 
@@ -354,8 +409,13 @@ namespace palettehelper
             }
             else
             {
-                newpal.Lpals.Add(PalMethods.loadpalette(PSPAL));
-                newpal.Rpals.Add(PalMethods.loadpalette(PSPAL));
+                Palette PSPALp = PalMethods.loadpalette(PSPAL);
+
+                Palette ltest = new Palette();
+                PSPALp.colors.CopyTo(ltest.colors,0);
+
+                newpal.Lpals.Add(ltest);
+                newpal.Rpals.Add(PSPALp);
             }
 
 
@@ -370,7 +430,7 @@ namespace palettehelper
                 newpal = PalMethods.processpalcfg(newpal, configtextlist);
             }
 
-            PalMethods.replacepalette(newpal.Lpals[0], newpal.Rpals[0], basepal, 0);
+            PalMethods.replacepalette(newpal.Lpals[0], newpal.Rpals[0], basepal, index);
         }
 
 

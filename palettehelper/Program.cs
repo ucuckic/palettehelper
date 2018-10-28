@@ -158,7 +158,7 @@ namespace palettehelper
                         {
                             Console.WriteLine("cycling lines " + i + " " + pspaldirtextlist[i]);
 
-                            PalMethods.replacepalettes(@pspaldirtextlist[i], basepal);
+                            PalMethods.replacepalettes(@pspaldirtextlist[i], basepal, i);
                             //Console.WriteLine("palrep "+i);
                             //Console.WriteLine(basepal.palcnt + " " + basepal.Lpals.Count + " " + basepal.Rpals.Count);
                         }
@@ -175,8 +175,8 @@ namespace palettehelper
 
                 foreach (string path in outputdirs)
                 {
-                    Console.WriteLine("saved to "+path);
                     PalMethods.createfile(Path.Combine(workingdir, path), basepal.getdata(type));
+                    
                 }
             }
 
