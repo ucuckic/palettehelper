@@ -74,16 +74,14 @@ namespace palettehelper
 
     public class Palette
     {
-        byte[] data = new byte[1024];
-
         public byte[][] colors = new byte[256][];
         public Palette()
         {
             for(int i = 0; i < colors.Length; i++)
             {
-                colors[i] = new byte[4];
+                byte ibyte = Convert.ToByte(i);
 
-                colors[i][3] = 255;
+                colors[i] = new byte[4] { ibyte, ibyte, ibyte, 255 };
             }
         }
         public byte[] getdata()
@@ -105,7 +103,7 @@ namespace palettehelper
         public static void replacepalette(Palette left, Palette right, PalFile file, int index)
         {
             Console.WriteLine("replace index "+index);
-            if (file.Lpals.Count >= index)
+            if (file.Lpals.Count >= index && file.Lpals.Count > 0)
             {
                 file.Lpals.RemoveAt(index);
                 file.Lpals.Insert(index, left);
@@ -122,7 +120,7 @@ namespace palettehelper
                 //Console.WriteLine(file.Lpals.Count);
             }
             
-            if (file.Rpals.Count >= index)
+            if (file.Rpals.Count >= index && file.Rpals.Count > 0)
             {
                 file.Rpals.RemoveAt(index);
                 file.Rpals.Insert(index, right);
@@ -158,6 +156,8 @@ namespace palettehelper
 
             byte[] UNISTheader = new byte[] { 255, 255, 00, 00 };
 
+            byte[] IMPLhead = new byte[] { 0x49, 0x4D, 0x50, 0x4C };
+
             using (MemoryStream stream = new MemoryStream(file))
             {
                 using (BinaryReader streamread = new BinaryReader(stream))
@@ -172,9 +172,32 @@ namespace palettehelper
                     if (header.SequenceEqual(PNGhead)) mode = 2; //mode 0 = unist
 
                     if (header.SequenceEqual(RIFFheadercheck)) mode = 10; //mode 10 = pspal
+
+                    if (header.SequenceEqual(IMPLhead)) mode = 20; //mode 20 = bbtag impl
                 }
             }
             return mode;
+        }
+
+        public static PalFile flipindex(PalFile inpal)
+        {
+            foreach(Palette pal in inpal.Lpals)
+            {
+                for(int i = 0; i < inpal.Lpals.Count; i++)
+                {
+                    inpal.Lpals[i].colors.Reverse();
+                }
+            }
+
+            foreach (Palette pal in inpal.Rpals)
+            {
+                for (int i = 0; i < inpal.Rpals.Count; i++)
+                {
+                    inpal.Rpals[i].colors.Reverse();
+                }
+            }
+
+            return inpal;
         }
 
         public static PalFile processpalcfg(PalFile inpal, List<string> instrlist)
@@ -200,7 +223,6 @@ namespace palettehelper
                         varstr = processedline.Substring(input.Groups[3].Index, input.Groups[3].Length);
                     }
 
-
                     int.TryParse(varstr, out int varint);
 
                     //Console.WriteLine("parameter "+paramstr);
@@ -208,6 +230,9 @@ namespace palettehelper
 
                     switch (paramstr)
                     {
+                        case "flipindex":
+                            inpal = flipindex(inpal);
+                            break;
                         case "autofixsides":
                             Console.WriteLine("fix sides");
                             inpal = fixpalsides2(varstr, inpal.Lpals[0], inpal.Rpals[0]);
@@ -347,13 +372,30 @@ namespace palettehelper
             Palette workingpalette = new Palette();
             switch (type)
             {
+                case 20:
+                    Console.WriteLine("impl load pal");
+                    for (int x = 0; x < 1024; x += 4)
+                    {
+
+                        offset = 148;
+                        byte[] workingpal = new byte[] {255, 0, 0, 0 } ;
+                        Array.Copy(sourcearray, x + offset, workingpal, 1, 3);
+
+                        workingpal = workingpal.Reverse().ToArray();
+
+                        //Console.WriteLine("impertant R "+workingpal[0]+" G "+workingpal[1]+" B "+workingpal[2]+" alpha "+workingpal[3]);
+
+                        workingpalette.colors[x / 4] = workingpal;
+                    }
+                    break;
                 case 10:
+                    Console.WriteLine("riff load pal");
                     for (int x = 0; x < 1024; x += 4)
                     {
                         offset = 24;
-                        byte[] workingpal = new byte[4];
+                        byte[] workingpal = new byte[] { 0, 0, 0, 255 };
 
-                        Array.Copy(sourcearray, x + offset, workingpal, 0, workingpal.Length);
+                        Array.Copy(sourcearray, x + offset, workingpal, 0, 3);
 
                         workingpal[3] = 255;
 
@@ -368,10 +410,11 @@ namespace palettehelper
                     }
                     break;
                 case 2:
-                    Console.WriteLine("png pal loading");
+                    Console.WriteLine("png load pal");
                     workingpalette = getpngpalette(sourcearray);
                     break;
                 default:
+                    Console.WriteLine("unist load pal");
                     for (int x = 0; x < 1024; x += 4)
                     {
 
@@ -631,6 +674,26 @@ namespace palettehelper
             Array.Copy(input2, 0, outcolors, 1023, 1024);
 
             return outcolors;
+        }
+
+        public static byte[] editsave(byte[] save)
+        {
+            //byte[] overwrite20 = new byte[] { 0xff  }
+            uint unlock = 0xffffffff;
+            using (MemoryStream stream = new MemoryStream(save))
+            {
+                using (BinaryWriter writesave = new BinaryWriter(stream))
+                {
+                    writesave.Seek(287951, 0);
+
+                    for (int i = 0; i < 25; i++)
+                    {
+                        writesave.Write(unlock);
+                    }
+                }
+            }
+
+            return save;
         }
     }
 }

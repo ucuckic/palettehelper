@@ -20,6 +20,7 @@ namespace palettehelper
             string workingdir = Directory.GetCurrentDirectory();
             string mode = "unist";
             string none = "null";
+            bool editsave = false;
 
             /*
             string PSPALdir = Path.Combine(workingdir, none);
@@ -59,7 +60,7 @@ namespace palettehelper
                 int count = 0;
                 foreach (string arg in args)
                 {
-                    Console.WriteLine(args.Length);
+                    //Console.WriteLine(args.Length+" "+arg);
                     switch (arg)
                     {
                         case "-input":
@@ -83,19 +84,41 @@ namespace palettehelper
                         case "-sides":
                             bothsides = Convert.ToBoolean(args[count + 1]);
                             break;
+                        case "-editsave":
+                            editsave = true;
+
+                            Console.WriteLine("save edit");
+                            break;
                         case "-basealpha":
                             alphacolor = Convert.ToByte(args[count + 1]);
                             break;
                     }
                     count++;
-                    Console.WriteLine(count);
+                    //Console.WriteLine(count);
                 }
+                //System.Environment.Exit(0);
             }
             else
             {
-                Console.WriteLine("Syntax: -input MS.Pal|Pal List.txt|Pal.png|, -basepal UNI.Pal, -color Pal to replace, -output output file, -mode 'uniel/unist' mode to use, -sides 'true/false' enable/disable copy pasting to second side");
-                System.Environment.Exit(0);
+                Console.WriteLine("Syntax: -input MS.Pal|Pal List.txt|Pal.png|, -basepal UNI.Pal, -color Pal to replace, -output output file");
+                return;
             }
+
+            if(editsave)
+            {
+                if (File.Exists(PSPALdir))
+                {
+                    Console.WriteLine("writing save");
+                    PalMethods.createfile(outputdir, PalMethods.editsave(File.ReadAllBytes(PSPALdir)));
+                    return;
+                }
+                else
+                {
+                    Console.WriteLine("save file not found");
+                    return;
+                }
+            }
+
             byte[] basepalbytes = new byte[86032];
 
             int type = 0;
