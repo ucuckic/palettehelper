@@ -684,7 +684,7 @@ namespace palettehelper
             {
                 using (BinaryWriter writesave = new BinaryWriter(stream))
                 {
-                    writesave.Seek(287951, 0);
+                    writesave.Seek(287948, 0);
 
                     for (int i = 0; i < 25; i++)
                     {

@@ -19,7 +19,6 @@ namespace palettehelper
         {
             string workingdir = Directory.GetCurrentDirectory();
             string mode = "unist";
-            string none = "null";
             bool editsave = false;
 
             /*
@@ -32,7 +31,6 @@ namespace palettehelper
             string PSPALdir = "none";
             string UNIPALdir = "none";
             string outputdir = "none";
-            string txtlistdir = "none";
 
             string palnumstring = "0";
             string alphacolorstring = "255";
@@ -41,19 +39,10 @@ namespace palettehelper
 
             byte alphacolor = Convert.ToByte(alphacolorstring);
 
-            bool bothsides = true;
-
-            bool fromscratch = true;
-
-            bool alphamode = false;
-
             int palnum = Convert.ToInt32(palnumstring);
 
 
             List<string> pspaldirtextlist = new List<string>();
-
-
-            bool istxtlist = false;
 
             if (args.Length > 0)
             {
@@ -82,7 +71,6 @@ namespace palettehelper
                             mode = args[count + 1];
                             break;
                         case "-sides":
-                            bothsides = Convert.ToBoolean(args[count + 1]);
                             break;
                         case "-editsave":
                             editsave = true;
@@ -144,17 +132,13 @@ namespace palettehelper
                     case 2:
                         break;
                     case 3: //text list
-
                         Console.WriteLine("textfile");
-
-                        istxtlist = true;
                         break;
                     case 10:
                         //headeroff = 0;
                         break;
                 }
                 basepal = PalMethods.loadpals(basepalbytes);
-                fromscratch = false;
             }
             byte[] PSPAL = new byte[1024];
 
