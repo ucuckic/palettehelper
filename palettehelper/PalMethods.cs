@@ -102,8 +102,8 @@ namespace palettehelper
     {
         public static void replacepalette(Palette left, Palette right, PalFile file, int index)
         {
-            Console.WriteLine("replace index "+index);
-            if (file.Lpals.Count >= index && file.Lpals.Count > 0)
+            Console.WriteLine("replace index "+index+" cnt "+file.Lpals.Count);
+            if (file.Lpals.Count > index && file.Lpals.Count > 0)
             {
                 file.Lpals.RemoveAt(index);
                 file.Lpals.Insert(index, left);
@@ -120,7 +120,7 @@ namespace palettehelper
                 //Console.WriteLine(file.Lpals.Count);
             }
             
-            if (file.Rpals.Count >= index && file.Rpals.Count > 0)
+            if (file.Rpals.Count > index && file.Rpals.Count > 0)
             {
                 file.Rpals.RemoveAt(index);
                 file.Rpals.Insert(index, right);

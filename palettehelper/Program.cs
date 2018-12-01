@@ -186,8 +186,6 @@ namespace palettehelper
                     
                 }
             }
-
         }
-       
     }
 }
