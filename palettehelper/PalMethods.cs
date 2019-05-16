@@ -218,6 +218,7 @@ namespace palettehelper
             byte[] PNGhead = new byte[] { 0x89, 0x50, 0x4E, 0x47 };
 
             byte[] UNISTheader = new byte[] { 255, 255, 00, 00 };
+            byte[] Nitroheader = new byte[] { 00, 00, 00, 00 };
 
             byte[] IMPLhead = new byte[] { 0x49, 0x4D, 0x50, 0x4C };
 
@@ -232,7 +233,9 @@ namespace palettehelper
 
                     if (!header.SequenceEqual(UNISTheader) && !header.SequenceEqual(RIFFheadercheck)) mode = 1; //mode 1 = el (probably)
 
-                    if (header.SequenceEqual(PNGhead)) mode = 2; //mode 0 = unist
+                    if (header.SequenceEqual(PNGhead)) mode = 2; //mode 2 = png
+
+                    if (header.SequenceEqual(Nitroheader)) mode = 4; //mode 4 = nitro
 
                     if (header.SequenceEqual(RIFFheadercheck)) mode = 10; //mode 10 = pspal
 
@@ -565,7 +568,7 @@ namespace palettehelper
             PalFile newpal = new PalFile();
             if( determineinput(PSPAL) == 0 || determineinput(PSPAL)==1 )
             {
-                newpal = loadpals(PSPAL);
+                newpal = loadpals(PSPAL,determineinput(PSPAL));
             }
             else
             {
@@ -599,9 +602,10 @@ namespace palettehelper
         }
 
 
-        public static PalFile loadpals(byte[] sourcearray)
+        public static PalFile loadpals(byte[] sourcearray, int type = 0)
         {
-            int type = PalMethods.determineinput(sourcearray);
+            bool two_sides = true;
+            int col_len = 1024; //length of a 256 color table
             int offset = 0;
             switch (type)
             {
@@ -612,8 +616,16 @@ namespace palettehelper
                     offset = 4; //el mode
                     break;
                 case 2:
+                    col_len = 768;
+                    break;
+                case 100: //melty mode
+                    offset = 4;
+                    two_sides = false;
                     break;
                 case 3: //text list
+                    break;
+                case 4: //nitro+
+                    offset = 16;
                     break;
                 case 10:
                     //headeroff = 0;
@@ -622,7 +634,7 @@ namespace palettehelper
 
             int numpal = (sourcearray.Length - offset) / 1024;
 
-            Console.WriteLine("num "+numpal);
+            Console.WriteLine("num total "+numpal);
 
             PalFile retpal = new PalFile();
             retpal.palcnt = numpal;
@@ -632,20 +644,26 @@ namespace palettehelper
 
             for (int i = offset, p = 0; p < numpal; i += 1024, p++)
             {
-                Console.WriteLine("num " + numpal+" at "+i+" num "+p);
+                Console.WriteLine("num total " + numpal+" at "+i+" num "+p);
                 Palette workingcol = loadpalette(sourcearray,0,i);
-
-                if(p >= numpal / 2)
+                if(two_sides)
                 {
-                    RIGHTpalettelist.Add(workingcol);
+                    if (p >= numpal / 2)
+                    {
+                        RIGHTpalettelist.Add(workingcol);
 
-                    Console.WriteLine("side 2");
+                        Console.WriteLine("side 2");
+                    }
+                    else
+                    {
+                        LEFTpalettelist.Add(workingcol);
+
+                        Console.WriteLine("side 1");
+                    }
                 }
                 else
                 {
                     LEFTpalettelist.Add(workingcol);
-
-                    Console.WriteLine("side 1");
                 }
 
                 //Console.WriteLine(i);
@@ -660,7 +678,7 @@ namespace palettehelper
 
                 bool debugoutput = false;
 
-                if(debugoutput) System.IO.File.WriteAllBytes(Path.Combine(workingdir, "debug/debug"+p+".pal"), paldat);
+                if(debugoutput) System.IO.File.WriteAllBytes(Path.Combine(workingdir, "debug/debug_"+p+".pal"), paldat);
             }
 
             retpal.Lpals = LEFTpalettelist;

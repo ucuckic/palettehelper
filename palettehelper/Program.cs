@@ -42,6 +42,7 @@ namespace palettehelper
             int palnum = Convert.ToInt32(palnumstring);
 
             int output_type = 0;
+            int manual_type = -1;
 
 
             List<string> pspaldirtextlist = new List<string>();
@@ -82,6 +83,9 @@ namespace palettehelper
                         case "-basealpha":
                             alphacolor = Convert.ToByte(args[count + 1]);
                             break;
+                        case "-manual_type":
+                            manual_type = Convert.ToByte(args[count + 1]);
+                            break;
                         case "-output_type":
                             output_type = Convert.ToByte(args[count + 1]);
                             break;
@@ -118,32 +122,28 @@ namespace palettehelper
 
             string PSPALfn = Path.GetFileName(PSPALdir);
 
-            int headeroff = 0;
-
             PalFile basepal = new PalFile();
             Palette inpal = new Palette();
             if (File.Exists(UNIPALdir))
             {
                 basepalbytes = File.ReadAllBytes(UNIPALdir);
-                type = PalMethods.determineinput(basepalbytes);
+                type = (manual_type != -1)? manual_type : PalMethods.determineinput(basepalbytes);
                 switch (type)
                 {
-                    case 0:
-                        headeroff = 16; //st mode
+                    case 0: //st mode
                         break;
-                    case 1:
-                        headeroff = 4; //el mode
+                    case 1: //el mode
                         break;
-                    case 2:
+                    case 2: //png (useless here)
                         break;
                     case 3: //text list
-                        Console.WriteLine("textfile");
+                        break;
+                    case 4: //nitro+
                         break;
                     case 10:
-                        //headeroff = 0;
                         break;
                 }
-                basepal = PalMethods.loadpals(basepalbytes);
+                basepal = PalMethods.loadpals(basepalbytes,type);
             }
             byte[] PSPAL = new byte[1024];
 
