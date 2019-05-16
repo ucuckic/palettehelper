@@ -8,6 +8,13 @@ using System.Threading.Tasks;
 
 namespace palettehelper
 {
+    public enum pal_game : Int32
+    {
+        UNIST = 0,
+        UNIEL = 1,
+        Melty = 2,
+        NitroPlus = 3,
+    }
 
     public class PalFile
     {
@@ -21,8 +28,10 @@ namespace palettehelper
             return Lpals.Count + Rpals.Count;
         }
 
-        public byte[] getdata(int head)
+        public byte[] getdata(int head, Enum mode = null)
         {
+            List<byte[]> bytelist = new List<byte[]>();
+
             palcnt = Lpals.Count + Rpals.Count;
 
             byte[] palcntbyte = BitConverter.GetBytes(palcnt);
@@ -34,33 +43,87 @@ namespace palettehelper
             palcntbyte.CopyTo(UNISTheader, 12);
             palcntbyte.CopyTo(UNIELheader, 0);
 
-            List<byte[]> bytelist = new List<byte[]>();
+            switch (mode)
+            {
+                case pal_game.UNIEL:
+                    Console.WriteLine("UNIEL output type");
 
-            switch(head)
-            { 
-                case 10:
-                    break;
-                case 0:
-                    bytelist.Insert(0, UNISTheader);
-                    break;
-                case 1:
+
                     bytelist.Insert(0, UNIELheader);
+
+                    Rpals.Reverse();
+                    Lpals.Reverse();
+
+                    foreach (Palette pal in Rpals)
+                    {
+                        //Console.WriteLine("here we go "+pal.colors[0][0]+" "+Rpals.Count);
+                        byte[] paldat = pal.getdata();
+                        bytelist.Insert(1, paldat);
+                    }
+                    foreach (Palette pal in Lpals)
+                    {
+                        byte[] paldat = pal.getdata();
+                        bytelist.Insert(1, paldat);
+                    }
+
                     break;
-            }
+                case pal_game.Melty:
+                    Console.WriteLine("Melty output type");
 
-            Rpals.Reverse();
-            Lpals.Reverse();
+                    byte[] MeltyHeader = new byte[] { (byte)Lpals.Count, 00, 00, 00 };
+                    bytelist.Insert(0, MeltyHeader);
 
-            foreach (Palette pal in Rpals)
-            {
-                //Console.WriteLine("here we go "+pal.colors[0][0]+" "+Rpals.Count);
-                byte[] paldat = pal.getdata();
-                bytelist.Insert(1, paldat);
-            }
-            foreach (Palette pal in Lpals)
-            {
-                byte[] paldat = pal.getdata();
-                bytelist.Insert(1, paldat);
+                    Rpals.Reverse();
+                    Lpals.Reverse();
+
+                    foreach (Palette pal in Lpals)
+                    {
+                        byte[] paldat = pal.getdata();
+                        bytelist.Insert(1, paldat);
+                    }
+
+                    break;
+                case pal_game.NitroPlus:
+                    Console.WriteLine("NitroPlus output type");
+
+                    byte[] NitroHeader = new byte[] { 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, (byte)palcnt, 0x00, 0x00, 0x00, 0x00 };
+
+                    bytelist.Insert(0, NitroHeader);
+
+                    Rpals.Reverse();
+                    Lpals.Reverse();
+
+                    foreach (Palette pal in Rpals)
+                    {
+                        byte[] paldat = pal.getdata();
+                        bytelist.Insert(1, paldat);
+                    }
+                    foreach (Palette pal in Lpals)
+                    {
+                        byte[] paldat = pal.getdata();
+                        bytelist.Insert(1, paldat);
+                    }
+                    break;
+                default:
+                    Console.WriteLine("UNIST output type");
+
+                    bytelist.Insert(0, UNISTheader);
+
+                    Rpals.Reverse();
+                    Lpals.Reverse();
+
+                    foreach (Palette pal in Rpals)
+                    {
+                        //Console.WriteLine("here we go "+pal.colors[0][0]+" "+Rpals.Count);
+                        byte[] paldat = pal.getdata();
+                        bytelist.Insert(1, paldat);
+                    }
+                    foreach (Palette pal in Lpals)
+                    {
+                        byte[] paldat = pal.getdata();
+                        bytelist.Insert(1, paldat);
+                    }
+                    break;
             }
 
             byte[] palarray = bytelist.SelectMany(a => a).ToArray();
@@ -224,6 +287,7 @@ namespace palettehelper
                     }
 
                     int.TryParse(varstr, out int varint);
+                    byte.TryParse(varstr, out byte varbyte);
 
                     //Console.WriteLine("parameter "+paramstr);
                     //Console.WriteLine("variable " + varstr);
@@ -236,6 +300,9 @@ namespace palettehelper
                         case "autofixsides":
                             Console.WriteLine("fix sides");
                             inpal = fixpalsides2(varstr, inpal.Lpals[0], inpal.Rpals[0]);
+                            break;
+                        case "basealpha":
+                            inpal = setpal_basealpha(inpal.Lpals[0], inpal.Rpals[0], varbyte);
                             break;
                         case "manualalpha":
                             Console.WriteLine("replacing alpha color");
@@ -256,12 +323,40 @@ namespace palettehelper
                                 Console.WriteLine("frompalcolor out of bounds (probably not a uni pal input)");
                             }
                             break;
+                        case "rbo":
+                            Console.WriteLine("reverse byte order config");
+
+                            inpal = reverse_byte_order(inpal.Lpals[0], inpal.Rpals[0]);
+                            
+                            break;
                         case "test":
                             Console.WriteLine("test success");
                             Console.WriteLine("parameter " + paramstr + " help");
                             Console.WriteLine("variable " + varstr + " help");
                             //System.Environment.Exit(0);
                             //PSPALdir = Path.Combine(workingdir, @args[count + 1]);
+                            break;
+                        case "merge":
+                            Match merge_var = Regex.Match(varstr, @"(.+?)(?:,|$)"); //several capture groups for several split vars
+                            Regex match_params = new Regex(@"(.+?)(?:,|$)");
+                            MatchCollection strmatches = match_params.Matches(varstr);
+
+                            Console.WriteLine("matches count "+strmatches.Count+" varstr "+varstr);
+
+                            string color_path = @varstr.Substring(strmatches[0].Groups[1].Index, strmatches[0].Groups[1].Length);
+                            //Console.WriteLine("match 1 " + color_path);
+
+                            int.TryParse(varstr.Substring(strmatches[1].Groups[1].Index, strmatches[1].Groups[1].Length), out int copy_from_sindex);
+                            //Console.WriteLine("match 2 "+ copy_from_sindex);
+
+                            int.TryParse(varstr.Substring(strmatches[2].Groups[1].Index, strmatches[2].Groups[1].Length), out int length);
+                            int.TryParse(varstr.Substring(strmatches[3].Groups[1].Index, strmatches[3].Groups[1].Length), out int copy_to_index);
+
+                            Palette use_palette = loadpalette(File.ReadAllBytes(color_path));
+
+                            inpal.Lpals[0] = merge_pal(inpal.Lpals[0], use_palette, copy_from_sindex, length, copy_to_index);
+                            inpal.Rpals[0] = merge_pal(inpal.Rpals[0], use_palette, copy_from_sindex, length, copy_to_index);
+
                             break;
                         default:
                             Console.WriteLine("unrecognized config variable: " + "'" + paramstr + "'");
@@ -270,6 +365,28 @@ namespace palettehelper
                 }
             }
             return inpal;
+        }
+
+        public static Palette merge_pal(Palette base_pal, Palette pal, int copy_from_sindex, int length, int copy_to_index )
+        {
+            Console.WriteLine("merge palettes copy index "+ copy_from_sindex+" copy len "+length+" paste index "+copy_to_index);
+
+            byte[][] paste_colors = new byte[256][];
+
+            for (int i = copy_from_sindex, b = 0; i < copy_from_sindex+length; i++, b++)
+            {
+                //Console.WriteLine("loop");
+
+                paste_colors[b] = pal.colors[i];
+            }
+
+            for(int i = 0; i < length; i++)
+            {
+                base_pal.colors[copy_to_index+i] = paste_colors[i];
+            }
+
+
+            return base_pal;
         }
 
         public static PalFile createpalfile(List<Palette> Lpalin, List<Palette> Rpalin)
@@ -437,7 +554,7 @@ namespace palettehelper
             return workingpalette;
         }
 
-        public static void replacepalettes(string inputdir, PalFile basepal, int index = 0)
+        public static void replacepalettes(string inputdir, PalFile basepal, int index = 0, List<string> early_config = null)
         {
             bool fromuni = false;
 
@@ -461,6 +578,11 @@ namespace palettehelper
                 newpal.Rpals.Add(PSPALp);
             }
 
+            if(early_config.Count > 0)
+            {
+                Console.WriteLine("list config located for " + inputdir);
+                newpal = PalMethods.processpalcfg(newpal, early_config);
+            }
 
             if (File.Exists(configdir))
             {
@@ -545,6 +667,45 @@ namespace palettehelper
             retpal.Rpals = RIGHTpalettelist;
 
             return retpal;
+        }
+
+        public static PalFile setpal_basealpha(Palette lside, Palette rside, byte val)
+        {
+            PalFile fixcol = new PalFile();
+
+            for (int i = 0; i < 255; i++)
+            {
+                lside.colors[i][3] = val;
+                rside.colors[i][3] = val;
+            }
+
+            fixcol.Rpals.Add(rside);
+            fixcol.Lpals.Add(lside);
+
+            return fixcol;
+        }
+
+        public static PalFile reverse_byte_order(Palette lside, Palette rside)
+        {
+            PalFile fixcol = new PalFile();
+
+            for(int i = 0; i < lside.colors.Length; i++)
+            {
+                byte[] workingpal = new byte[] { 255, 0, 0, 0 };
+                Array.Copy(lside.colors[i], 0, workingpal, 1, 3);
+
+                lside.colors[i] = workingpal.Reverse().ToArray();
+
+                byte[] workingpal2 = new byte[] { 255, 0, 0, 0 };
+                Array.Copy(rside.colors[i], 0, workingpal2, 1, 3);
+
+                rside.colors[i] = workingpal.Reverse().ToArray();
+            }
+
+            fixcol.Rpals.Add(rside);
+            fixcol.Lpals.Add(lside);
+
+            return fixcol;
         }
 
         public static PalFile setpalalpha(Palette lside, Palette rside, Palette alphamap)
@@ -686,7 +847,7 @@ namespace palettehelper
                 {
                     writesave.Seek(287948, 0);
 
-                    for (int i = 0; i < 25; i++)
+                    for (int i = 0; i < 32; i++)
                     {
                         writesave.Write(unlock);
                     }

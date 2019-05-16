@@ -41,6 +41,8 @@ namespace palettehelper
 
             int palnum = Convert.ToInt32(palnumstring);
 
+            int output_type = 0;
+
 
             List<string> pspaldirtextlist = new List<string>();
 
@@ -79,6 +81,9 @@ namespace palettehelper
                             break;
                         case "-basealpha":
                             alphacolor = Convert.ToByte(args[count + 1]);
+                            break;
+                        case "-output_type":
+                            output_type = Convert.ToByte(args[count + 1]);
                             break;
                     }
                     count++;
@@ -154,22 +159,68 @@ namespace palettehelper
                     Console.WriteLine("a text file " + pspaldirtextlist.Count);
                     for (int i = 0; i < pspaldirtextlist.Count; i++)
                     {
-                        if (File.Exists(pspaldirtextlist[i]) == false || (i > basepal.palcnt))
+                        if (pspaldirtextlist[i] != "")
                         {
-                            string mess = (i > basepal.palcnt) ? "file out of list/palette range" : "file not found";
+                            List<string> config_list = new List<string>();
 
+                            Regex match_params = new Regex(@"\[(.*?)\]");
 
-                            Console.WriteLine("skipped " + pspaldirtextlist[i] +" num "+ i + " " + " because " + mess);
+                            MatchCollection line_parameters = match_params.Matches(pspaldirtextlist[i]);
+
+                            foreach(Match match in line_parameters)
+                            {
+                                config_list.Add(pspaldirtextlist[i].Substring(match.Index+1,match.Length-2));
+                            }
+
+                            //Console.WriteLine("early config match count "+line_parameters.Count+" ind "+ line_parameters[0].Index+" len "+ line_parameters[0].Length);
+
+                            string use_str = (line_parameters.Count > 0)? pspaldirtextlist[i].Substring(0, line_parameters[0].Index) : pspaldirtextlist[i];
+                            if (File.Exists(use_str) == false)
+                            {
+                                string mess = "file not found";
+
+                                Console.WriteLine("skipped " + use_str + " num " + i + " " + " because " + mess);
+
+                                if (i > basepal.Lpals.Count)
+                                {
+                                    Palette newpal = new Palette();
+
+                                    basepal.Lpals.Add(newpal);
+                                }
+
+                                if (i > basepal.Rpals.Count)
+                                {
+                                    Palette newpal = new Palette();
+
+                                    basepal.Rpals.Add(newpal);
+                                }
+                            }
+                            else
+                            {
+                                Console.WriteLine("cycling lines " + i + " " + use_str);
+
+                                PalMethods.replacepalettes(Path.GetFullPath(use_str), basepal, i,config_list);
+                                //Console.WriteLine("palrep "+i);
+                                //Console.WriteLine(basepal.palcnt + " " + basepal.Lpals.Count + " " + basepal.Rpals.Count);
+                            }
                         }
                         else
                         {
-                            Console.WriteLine("cycling lines " + i + " " + pspaldirtextlist[i]);
+                            Console.WriteLine("propogating empty line " + i + " " + pspaldirtextlist[i]);
+                            if (i > basepal.Lpals.Count)
+                            {
+                                Palette newpal = new Palette();
 
-                            PalMethods.replacepalettes(@pspaldirtextlist[i], basepal, i);
-                            //Console.WriteLine("palrep "+i);
-                            //Console.WriteLine(basepal.palcnt + " " + basepal.Lpals.Count + " " + basepal.Rpals.Count);
+                                basepal.Lpals.Add(newpal);
+                            }
+
+                            if (i > basepal.Rpals.Count)
+                            {
+                                Palette newpal = new Palette();
+
+                                basepal.Rpals.Add(newpal);
+                            }
                         }
-                        
                     }
                 }
                 else
@@ -182,7 +233,7 @@ namespace palettehelper
 
                 foreach (string path in outputdirs)
                 {
-                    PalMethods.createfile(Path.Combine(workingdir, path), basepal.getdata(type));
+                    PalMethods.createfile(Path.Combine(workingdir, path), basepal.getdata(type,(pal_game)output_type));
                     
                 }
             }
